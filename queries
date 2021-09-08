@@ -1,12 +1,35 @@
 
-WITH usa_sold AS (
-SELECT * 
-FROM invoice_line
-INNER JOIN invoice ON invoice_line_id = invoice_id
-WHERE billing_country = "USA" )
-SELECT g.name as genre, SUM(usa_sold.quantity) as total
+'WITH usa_sold AS (
+SELECT il.* 
+FROM invoice_line il
+INNER JOIN invoice i USING(invoice_id)
+INNER JOIN customer c USING(customer_id)
+WHERE c.country = "USA" 
+)
+SELECT g.name as genre, 
+       SUM(quantity) as total
 FROM usa_sold 
-LEFT JOIN track USING(track_id)
-LEFT JOIN genre USING(genre_id)
-GROUP BY genre
+INNER JOIN track USING(track_id)
+INNER JOIN genre g USING(genre_id)
+GROUP BY genre'
                       
+
+'WITH usa_tracks_sold AS
+   (
+    SELECT il.* FROM invoice_line il
+    INNER JOIN invoice i on il.invoice_id = i.invoice_id
+    INNER JOIN customer c on i.customer_id = c.customer_id
+    WHERE c.country = "USA"
+   )
+SELECT
+    g.name genre,
+    count(uts.invoice_line_id) tracks_sold,
+    cast(count(uts.invoice_line_id) AS FLOAT) / (
+        SELECT COUNT(*) from usa_tracks_sold
+    ) percentage_sold
+FROM usa_tracks_sold uts
+INNER JOIN track t on t.track_id = uts.track_id
+INNER JOIN genre g on g.genre_id = t.genre_id
+GROUP BY 1
+ORDER BY 2 DESC
+LIMIT 10;'
