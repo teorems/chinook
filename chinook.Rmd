@@ -1,0 +1,74 @@
+---
+title: "The chinook DB"
+subtitle: "Answering Business Questions using SQL"
+author: "Emmanuel Messori"
+date: "08/09/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(RSQLite)
+library(DBI)
+source('functions.R')
+```
+
+```{r}
+show_tables()
+```
+
+
+The Chinook record store has just signed a deal with a new record label, and you're in charge of choosing the first three albums to be added to the store. There are four albums to choose from, and all four are by artists who don't have any tracks in the store right now. Below is the list of artist names and the genre of music they produce:
+
+|Artist Name |Genre|
+|------------|-----|
+|Regal |	Hip-Hop|
+|Red Tone	| Punk|
+|Meteor and the Girls |	Pop|
+|Slim Jim Bites	| Blues|
+
+To aid in selecting albums, we're interested in finding out which genres sell the best in the USA.
+
+```{r}
+# genre, track sold, percentage
+# plot
+# a paragraph that interprets the data and makes a recommendation for the three
+# artists whose albums we should purchase for the store, based on sales of
+# tracks from their genres.
+query <- 'WITH usa_sold AS (
+SELECT il.* 
+FROM invoice_line il
+INNER JOIN invoice i USING(invoice_id)
+INNER JOIN customer c USING(customer_id)
+WHERE c.country = "USA" 
+)
+SELECT g.name as genre, 
+       COUNT(invoice_line_id) as total,
+       CAST(SUM(quantity) AS FLOAT) / (
+       SELECT SUM(quantity) FROM usa_sold
+       ) perc_sold
+FROM usa_sold
+INNER JOIN track USING(track_id)
+INNER JOIN genre g USING(genre_id)
+GROUP BY genre
+ORDER BY total DESC'
+usa_genres_most_sold <-run_query(query)
+usa_genres_most_sold
+```
+```{r}
+library(tidyverse)
+library(scales)
+theme_set(theme_light())
+ggplot(usa_genres_most_sold, aes(fct_reorder(genre, total), total)) +
+  geom_col(aes(fill=total)) + coord_flip() + labs(title="Genres most sold in USA", x="Total tracks sold", y="Genre") +
+  geom_text (aes(label=sprintf("%1.1f%%",round(perc_sold,4)*100)), size=3.5, nudge_y=30)
+    
+```
+
+According to the barplot, Rock is by far the highest selling genre in the database, followed by Alternative & Punk and Metal. Among the recordings proposed by the record label, we have four genres: Punk, Hip-Hop, Blues and Pop. Following the chart, we would then exclude the Hip-Hop artist.
+
+
+

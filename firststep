@@ -1,0 +1,22 @@
+The Chinook record store has just signed a deal with a new record label, and you're in charge of choosing the first three albums to be added to the store. There are four albums to choose from, and all four are by artists who don't have any tracks in the store right now. Below is the list of artist names and the genre of music they produce:
+
+Artist Name	Genre
+Regal	Hip-Hop
+Red Tone	Punk
+Meteor and the Girls	Pop
+Slim Jim Bites	Blues
+The record label specializes in artists from the USA, and they have given Chinook some money to advertise the new albums in the USA. To aid in selecting albums, we're interested in finding out which genres sell the best in the USA.
+
+You'll need to write a query to find out which genres sell the most tracks in the USA, and then create a visualization of that data.
+
+Once you have the results of your query on hand, you can experiment with different visualization methods in ggplot2. We're trying to establish comparisons between genres, so the best visualizations will allow a user to instantly see differences between them.
+
+Lastly, write up a summary of your findings and make a recommendation for the three artists whose albums we should purchase for the store. Make reference to your visualization to back up your recommendation.
+
+For this screen:
+
+Write a query that returns each genre, with the number of tracks sold in the USA:
+in absolute numbers
+in percentages
+Create a plot to show this data.
+Write a paragraph that interprets the data and makes a recommendation for the three artists whose albums we should purchase for the store, based on sales of tracks from their genres.

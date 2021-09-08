@@ -1,0 +1,12 @@
+
+WITH usa_sold AS (
+SELECT * 
+FROM invoice_line
+INNER JOIN invoice ON invoice_line_id = invoice_id
+WHERE billing_country = "USA" )
+SELECT g.name as genre, SUM(usa_sold.quantity) as total
+FROM usa_sold 
+LEFT JOIN track USING(track_id)
+LEFT JOIN genre USING(genre_id)
+GROUP BY genre
+                      
