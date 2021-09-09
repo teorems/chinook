@@ -16,10 +16,19 @@ library(DBI)
 source('functions.R')
 ```
 
+## The DB relational schema
+
+```{r}
+library(knitr)
+include_graphics("chinook.png")
+```
+
 ```{r}
 show_tables()
 ```
 
+
+## New records
 
 The Chinook record store has just signed a deal with a new record label, and you're in charge of choosing the first three albums to be added to the store. There are four albums to choose from, and all four are by artists who don't have any tracks in the store right now. Below is the list of artist names and the genre of music they produce:
 
@@ -63,12 +72,196 @@ library(tidyverse)
 library(scales)
 theme_set(theme_light())
 ggplot(usa_genres_most_sold, aes(fct_reorder(genre, total), total)) +
-  geom_col(aes(fill=total)) + coord_flip() + labs(title="Genres most sold in USA", x="Total tracks sold", y="Genre") +
-  geom_text (aes(label=sprintf("%1.1f%%",round(perc_sold,4)*100)), size=3.5, nudge_y=30)
+  geom_col(aes(fill=total), show.legend = FALSE) + coord_flip() + labs(title="Top genres in USA", x="Total tracks sold", y="Genre") +
+  geom_text (aes(label=sprintf("%1.1f%%",round(perc_sold,4)*100)), size=3.5, nudge_y=25) + scale_fill_viridis_c()
     
 ```
 
 According to the barplot, Rock is by far the highest selling genre in the database, followed by Alternative & Punk and Metal. Among the recordings proposed by the record label, we have four genres: Punk, Hip-Hop, Blues and Pop. Following the chart, we would then exclude the Hip-Hop artist.
+
+## Sales support
+
+Each customer for the Chinook store gets assigned to a sales support agent within the company when they first make a purchase. You have been asked to analyze the purchases of customers belonging to each employee to see if any sales support agent is performing either better or worse than the others.
+
+```{r}
+# Write a query that finds the total dollar amount of sales assigned to each
+# sales support agent within the company. Add any extra attributes for that
+# employee that you find are relevant to the analysis. Create a plot of the
+# results of your query. Write a short statement describing your results, and
+# provide a possible interpretation.
+
+ss_performance <- 'SELECT e.employee_id as id, 
+                          
+                          e.first_name || " " || e.last_name as name,
+                          e.title as title,
+                          e.hire_date,
+                          COUNT (DISTINCT c.customer_id) as n_customers,
+                          sum(i.total) AS total_sold,
+                          sum(i.total)  / COUNT (DISTINCT (c.customer_id)) as tot_sold_per_cust
+                          
+                   FROM employee e
+                   
+                   INNER JOIN customer c ON employee_id = support_rep_id
+                   INNER JOIN invoice i USING(customer_id)
+                    
+                   GROUP BY id
+                   
+                   ORDER BY total_sold DESC'
+
+ss_perf <- run_query(ss_performance)
+ss_perf
+```
+
+```{r}
+ggplot(ss_perf, aes(name, total_sold)) + geom_col(fill="steelblue") + labs(title = "Total tracks sold by employee", x="", y="Total")
+```
+
+
+The three Sales Support have been hired at different times. That could explain the difference in the performance.
+Also each employee has a different number of customers assigned. If we divide the total sold by the number of customer we find the mean sold per customer. Of course to have a more precise view we could standardize the data and apply an ANOVA.
+
+## International sales data
+
+```{r}
+# For each country:
+# use country value from the customers table
+# Total number of customers
+# Total value of sales
+# Average value of sales per customer
+# Average order value
+# Where a country has only one customer, collect them into an "Other" group. The
+# results should be sorted by the total sales from highest to lowest, with the
+# "Other" group at the very bottom.
+
+
+run_statement('DROP VIEW IF EXISTS n_cust')
+
+view <- 'CREATE VIEW n_cust AS 
+         SELECT country, COUNT(customer_id) as tot_cust FROM customer
+         GROUP BY country'
+
+country_sales <- 'WITH sub AS 
+                  (
+                  SELECT nc.*,
+                  CASE 
+                      WHEN tot_cust > 1 THEN "Normal"
+                      ELSE "Other"
+                      END
+                      AS c_group
+                  FROM n_cust nc
+                  )
+                  SELECT sub.country, 
+                         sub.tot_cust, 
+                         SUM(i.total) as tot_sold,
+                         SUM(i.total) / COUNT(DISTINCT(i.customer_id)) as tot_sales_per_cust,
+                         SUM(i.total) / COUNT(invoice_id) as avg_invoice,
+                         c_group
+                  FROM customer c 
+                  INNER JOIN invoice i USING(customer_id)
+                  INNER JOIN sub USING (country)
+                  GROUP BY country
+                  ORDER BY tot_sold DESC'
+                         
+                  
+run_statement(view)
+show_tables()
+country_sales <- run_query(country_sales)
+country_sales
+```
+
+```{r}
+ggplot(country_sales) + geom_col(mapping = aes(reorder(country,tot_sold), tot_sold, fill = tot_sold), show.legend = FALSE) + scale_y_continuous(labels = label_dollar()) + theme(axis.text.x = element_text(angle = 90)) + scale_fill_viridis_c() + labs(title="Total sales per country", subtitle = "Number of customers per country", y="", x ="") + geom_text(aes(x =reorder(country,tot_sold), y = tot_sold, label=tot_cust), nudge_y = 10)
+```
+```{r}
+country_sales %>% mutate(Zone = case_when(country == "USA" ~ "USA", 
+                                            country %in% c("Austria", "Belgium", "Czech Republic", "Denmark", "Finland",
+                                                           "France", "Germany", "Hungary", "Ireland", "Italy",                                                                    "Netherland", "Norway", "Poland", "Portugal", "Spain",                                                                   "Sweden", "United Kingdom") ~ "Europe",
+                                            TRUE ~ "Rest of the world"),
+                         ) %>%  
+  group_by(Zone) %>% 
+  summarise(perc_sales = sum(tot_sold)) %>%
+  ungroup() %>%
+  mutate(perc_sales = round(perc_sales / sum(perc_sales) * 100, 2)) -> perc_sales
+ 
+  
+
+
+perc_sales %>% ggplot(aes(x=1, perc_sales, fill=Zone)) + geom_col(color="white", size=2) + coord_polar("y") + theme_void() + scale_fill_viridis_d(direction = -1) + geom_label(aes(label= sprintf("%1.1f%%", perc_sales)), position = position_stack(vjust=0.5), show.legend = FALSE) + ggtitle("Percentage of global sales")
+```
+```{r}
+ggplot(filter(country_sales, c_group == "Normal"), aes(reorder(country, tot_sales_per_cust), tot_sales_per_cust, fill=tot_sales_per_cust)) + geom_col(show.legend = FALSE) + scale_fill_viridis_c() + theme(axis.text.x = element_text(angle = 90)) + scale_y_continuous(labels = label_dollar()) + labs(title="Average total sales per customer", subtitle="Countries with two or more clients", x="",y="")
+```
+
+
+USA is by far the most solid market, which constitutes almost 1/4 of the total sales. Anyway we have a lot of emerging tendencies from countries like Czech Republic, Portugal, India which, though have few users have higher sales per customer. These countries could be a good target for a promotional campaign. Canada is the second global market, which should be stimulated : the number of clients is good but they're mean expenses are quite low. In general, an European promotional campaign would be very beneficial.
+
+Write a query that categorizes each invoice as either an album purchase or not, and calculates the following summary statistics:
+Number of invoices
+Percentage of invoices
+Write one to two sentences explaining your findings, and making a prospective recommendation on whether the Chinook store should continue to buy full albums from record companies.
+
+```{r}
+albums_vs_tracks <- 'WITH invoice_first_track AS
+    (
+     SELECT
+         il.invoice_id invoice_id,
+         MIN(il.track_id) first_track_id
+     FROM invoice_line il
+     GROUP BY 1
+    )
+SELECT
+    album_purchase,
+    COUNT(invoice_id) number_of_invoices,
+    CAST(count(invoice_id) AS FLOAT) / (
+                                         SELECT COUNT(*) FROM invoice
+                                      ) percent
+FROM
+    (
+    SELECT
+        ifs.*,
+        CASE
+            WHEN
+                 (
+                  SELECT t.track_id FROM track t
+                  WHERE t.album_id = (
+                                      SELECT t2.album_id FROM track t2
+                                      WHERE t2.track_id = ifs.first_track_id
+                                     ) 
+                  EXCEPT 
+                  SELECT il2.track_id FROM invoice_line il2
+                  WHERE il2.invoice_id = ifs.invoice_id
+                 ) IS NULL
+             AND
+                 (
+                  SELECT il2.track_id FROM invoice_line il2
+                  WHERE il2.invoice_id = ifs.invoice_id
+                  EXCEPT 
+                  SELECT t.track_id FROM track t
+                  WHERE t.album_id = (
+                                      SELECT t2.album_id FROM track t2
+                                      WHERE t2.track_id = ifs.first_track_id
+                                     ) 
+                 ) IS NULL
+             THEN "yes"
+             ELSE "no"
+         END AS "album_purchase"
+     FROM invoice_first_track ifs
+    )
+GROUP BY album_purchase'
+
+run_query(albums_vs_tracks)
+```
+
+Album purchases account for almost a quarter of the total sales, so it is inadvisable to change strategy to just purchase the most popular tracks.
+                  
+                  
+                
+                  
+```
+
+
+
+
 
 
 

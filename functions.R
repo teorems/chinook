@@ -1,4 +1,8 @@
-query <- ""
+run_statement <- function(s) {
+  conn = dbConnect(SQLite(),'chinook.db')
+  dbExecute(conn, s)
+  dbDisconnect(conn)
+}
 
 run_query <- function(q) {
   conn = dbConnect(SQLite(),'chinook.db')
