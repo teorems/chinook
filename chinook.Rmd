@@ -1,27 +1,26 @@
 ---
 title: "The chinook DB"
-subtitle: "Answering Business Questions using SQL"
 author: "Emmanuel Messori"
 date: "08/09/2021"
-output: html_document
+output: pdf_document 
+subtitle: Answering Business Questions using SQL
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, tidy.opts=list(width.cutoff=40),tidy=TRUE)
 ```
 
-```{r}
+```{r, }
 library(RSQLite)
 library(DBI)
 source('functions.R')
 ```
 
-## The DB relational schema
 
-```{r}
-library(knitr)
-include_graphics("chinook.png")
-```
+![The database relational schema](chinook.png)
+
+
+## Tables
 
 ```{r}
 show_tables()
@@ -42,11 +41,7 @@ The Chinook record store has just signed a deal with a new record label, and you
 To aid in selecting albums, we're interested in finding out which genres sell the best in the USA.
 
 ```{r}
-# genre, track sold, percentage
-# plot
-# a paragraph that interprets the data and makes a recommendation for the three
-# artists whose albums we should purchase for the store, based on sales of
-# tracks from their genres.
+
 query <- 'WITH usa_sold AS (
 SELECT il.* 
 FROM invoice_line il
@@ -67,28 +62,26 @@ ORDER BY total DESC'
 usa_genres_most_sold <-run_query(query)
 usa_genres_most_sold
 ```
+
 ```{r}
 library(tidyverse)
 library(scales)
 theme_set(theme_light())
 ggplot(usa_genres_most_sold, aes(fct_reorder(genre, total), total)) +
-  geom_col(aes(fill=total), show.legend = FALSE) + coord_flip() + labs(title="Top genres in USA", x="Total tracks sold", y="Genre") +
-  geom_text (aes(label=sprintf("%1.1f%%",round(perc_sold,4)*100)), size=3.5, nudge_y=25) + scale_fill_viridis_c()
+  geom_col(aes(fill=total), show.legend = FALSE) + coord_flip() + 
+  labs(title="Top genres in USA", x="Total tracks sold", y="Genre") +
+  geom_text (aes(label=sprintf("%1.1f%%",round(perc_sold,4)*100)), size=3.5, nudge_y=25) + 
+  scale_fill_viridis_c()
     
 ```
 
 According to the barplot, Rock is by far the highest selling genre in the database, followed by Alternative & Punk and Metal. Among the recordings proposed by the record label, we have four genres: Punk, Hip-Hop, Blues and Pop. Following the chart, we would then exclude the Hip-Hop artist.
 
-## Sales support
+## Sales support performance
 
 Each customer for the Chinook store gets assigned to a sales support agent within the company when they first make a purchase. You have been asked to analyze the purchases of customers belonging to each employee to see if any sales support agent is performing either better or worse than the others.
 
 ```{r}
-# Write a query that finds the total dollar amount of sales assigned to each
-# sales support agent within the company. Add any extra attributes for that
-# employee that you find are relevant to the analysis. Create a plot of the
-# results of your query. Write a short statement describing your results, and
-# provide a possible interpretation.
 
 ss_performance <- 'SELECT e.employee_id as id, 
                           
@@ -113,9 +106,10 @@ ss_perf
 ```
 
 ```{r}
-ggplot(ss_perf, aes(name, total_sold)) + geom_col(fill="steelblue") + labs(title = "Total tracks sold by employee", x="", y="Total")
+ggplot(ss_perf, aes(name, total_sold)) + 
+  geom_col(fill="steelblue") + 
+  labs(title = "Total tracks sold by employee", x="", y="Total")
 ```
-
 
 The three Sales Support have been hired at different times. That could explain the difference in the performance.
 Also each employee has a different number of customers assigned. If we divide the total sold by the number of customer we find the mean sold per customer. Of course to have a more precise view we could standardize the data and apply an ANOVA.
@@ -123,16 +117,6 @@ Also each employee has a different number of customers assigned. If we divide th
 ## International sales data
 
 ```{r}
-# For each country:
-# use country value from the customers table
-# Total number of customers
-# Total value of sales
-# Average value of sales per customer
-# Average order value
-# Where a country has only one customer, collect them into an "Other" group. The
-# results should be sorted by the total sales from highest to lowest, with the
-# "Other" group at the very bottom.
-
 
 run_statement('DROP VIEW IF EXISTS n_cust')
 
@@ -170,11 +154,18 @@ country_sales
 ```
 
 ```{r}
-ggplot(country_sales) + geom_col(mapping = aes(reorder(country,tot_sold), tot_sold, fill = tot_sold), show.legend = FALSE) + scale_y_continuous(labels = label_dollar()) + theme(axis.text.x = element_text(angle = 90)) + scale_fill_viridis_c() + labs(title="Total sales per country", subtitle = "Number of customers per country", y="", x ="") + geom_text(aes(x =reorder(country,tot_sold), y = tot_sold, label=tot_cust), nudge_y = 10)
+ggplot(country_sales) + geom_col(mapping = aes(reorder(country,tot_sold), tot_sold, fill = tot_sold), show.legend = FALSE) + 
+  scale_y_continuous(labels = label_dollar()) + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  scale_fill_viridis_c() + 
+  labs(title="Total sales per country", subtitle = "Number of customers per country", y="", x ="") + 
+  geom_text(aes(x =reorder(country,tot_sold), y = tot_sold, label=tot_cust), nudge_y = 10)
 ```
+
 ```{r}
-country_sales %>% mutate(Zone = case_when(country == "USA" ~ "USA", 
-                                            country %in% c("Austria", "Belgium", "Czech Republic", "Denmark", "Finland",
+country_sales %>%
+  mutate(Zone = case_when(country == "USA" ~ "USA", 
+                          country %in% c("Austria", "Belgium", "Czech Republic", "Denmark", "Finland",
                                                            "France", "Germany", "Hungary", "Ireland", "Italy",                                                                    "Netherland", "Norway", "Poland", "Portugal", "Spain",                                                                   "Sweden", "United Kingdom") ~ "Europe",
                                             TRUE ~ "Rest of the world"),
                          ) %>%  
@@ -186,19 +177,29 @@ country_sales %>% mutate(Zone = case_when(country == "USA" ~ "USA",
   
 
 
-perc_sales %>% ggplot(aes(x=1, perc_sales, fill=Zone)) + geom_col(color="white", size=2) + coord_polar("y") + theme_void() + scale_fill_viridis_d(direction = -1) + geom_label(aes(label= sprintf("%1.1f%%", perc_sales)), position = position_stack(vjust=0.5), show.legend = FALSE) + ggtitle("Percentage of global sales")
+perc_sales %>%
+  ggplot(aes(x=1, perc_sales, fill=Zone)) + 
+  geom_col(color="white", size=2) + 
+  coord_polar("y") + 
+  theme_void() + 
+  scale_fill_viridis_d(direction = -1) + 
+  geom_label(aes(label= sprintf("%1.1f%%", perc_sales)), position = position_stack(vjust=0.5), show.legend = FALSE) + ggtitle("Percentage of global sales")
 ```
 ```{r}
-ggplot(filter(country_sales, c_group == "Normal"), aes(reorder(country, tot_sales_per_cust), tot_sales_per_cust, fill=tot_sales_per_cust)) + geom_col(show.legend = FALSE) + scale_fill_viridis_c() + theme(axis.text.x = element_text(angle = 90)) + scale_y_continuous(labels = label_dollar()) + labs(title="Average total sales per customer", subtitle="Countries with two or more clients", x="",y="")
+ggplot(filter(country_sales, c_group == "Normal"), aes(reorder(country, tot_sales_per_cust), tot_sales_per_cust, fill=tot_sales_per_cust)) + 
+  geom_col(show.legend = FALSE) + 
+  scale_fill_viridis_c() + 
+  theme(axis.text.x = element_text(angle = 90)) + 
+  scale_y_continuous(labels = label_dollar()) + 
+  labs(title="Average total sales per customer", subtitle="Countries with two or more clients", x="",y="")
 ```
 
 
 USA is by far the most solid market, which constitutes almost 1/4 of the total sales. Anyway we have a lot of emerging tendencies from countries like Czech Republic, Portugal, India which, though have few users have higher sales per customer. These countries could be a good target for a promotional campaign. Canada is the second global market, which should be stimulated : the number of clients is good but they're mean expenses are quite low. In general, an European promotional campaign would be very beneficial.
 
-Write a query that categorizes each invoice as either an album purchase or not, and calculates the following summary statistics:
-Number of invoices
-Percentage of invoices
-Write one to two sentences explaining your findings, and making a prospective recommendation on whether the Chinook store should continue to buy full albums from record companies.
+## Album purchases vs single tracks
+
+The sales department is investigating whether is still profitable to buy and entire albums from record companies or to just focus on the potential most popular tracks.
 
 ```{r}
 albums_vs_tracks <- 'WITH invoice_first_track AS
@@ -252,12 +253,12 @@ GROUP BY album_purchase'
 run_query(albums_vs_tracks)
 ```
 
+
 Album purchases account for almost a quarter of the total sales, so it is inadvisable to change strategy to just purchase the most popular tracks.
                   
                   
                 
-                  
-```
+              
 
 
 
